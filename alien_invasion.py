@@ -1,3 +1,4 @@
+import os
 import sys
 from time import sleep
 from pathlib import Path
@@ -41,10 +42,30 @@ class AlienInvasion:
         # Make the Play button.
         self.play_button = Button(self, "Play")
 
-    def run_game(self):
-        """Start the main loop for the game."""
+    def run_game(self, max_frames=None, autoplay=False):
+        """Start the main loop for the game.
+
+        Args:
+            max_frames: Optional number of frames to run before exiting.
+            autoplay: If True, auto-start game and generate simple movement/fire input.
+        """
+        frame_count = 0
+        autoplay_direction = 1
+
+        if autoplay and not self.stats.game_active:
+            self._check_play_button(self.play_button.rect.center)
+
         while True:
             self._check_events()
+
+            if autoplay and self.stats.game_active:
+                # Simulate simple up/down movement and periodic firing.
+                if frame_count % 45 == 0:
+                    autoplay_direction *= -1
+                self.ship.moving_up = autoplay_direction > 0
+                self.ship.moving_down = autoplay_direction < 0
+                if frame_count % 18 == 0:
+                    self._fire_bullet()
 
             if self.stats.game_active:
                 self.ship.update()
@@ -52,6 +73,10 @@ class AlienInvasion:
                 self._update_aliens()
 
             self._update_screen()
+            frame_count += 1
+
+            if max_frames is not None and frame_count >= max_frames:
+                break
 
     def _check_events(self):
         """Respond to keypresses and mouse events."""
@@ -123,7 +148,7 @@ class AlienInvasion:
         # Get rid of bullets that have disappeared.
         for bullet in self.bullets.copy():
             if bullet.rect.left >= self.screen.get_rect().right:
-                 self.bullets.remove(bullet)
+                self.bullets.remove(bullet)
 
         self._check_bullet_alien_collisions()
 
@@ -131,7 +156,7 @@ class AlienInvasion:
         """Respond to bullet-alien collisions."""
         # Remove any bullets and aliens that have collided.
         collisions = pygame.sprite.groupcollide(
-                self.bullets, self.aliens, True, True)
+            self.bullets, self.aliens, True, True)
 
         if collisions:
             for aliens in collisions.values():
@@ -168,10 +193,10 @@ class AlienInvasion:
         """Check if any aliens have reached the bottom of the screen."""
         screen_rect = self.screen.get_rect()
         for alien in self.aliens.sprites():
-                # Treat this the same as if the ship got hit.
-                if alien.rect.left <= screen_rect.left:
-                    self._ship_hit()
-                    break
+            # Treat this the same as if the ship got hit.
+            if alien.rect.left <= screen_rect.left:
+                self._ship_hit()
+                break
 
     def _ship_hit(self):
         """Respond to the ship being hit by an alien."""
@@ -204,8 +229,7 @@ class AlienInvasion:
         number_aliens_x = available_space_x // (2 * alien_width)
 
         # Determine the number of rows of aliens that fit on the screen.
-        available_space_y = (self.settings.screen_height -
-                                (2 * alien_height))
+        available_space_y = self.settings.screen_height - (2 * alien_height)
         number_rows = available_space_y // (2 * alien_height)
 
         # Create the full fleet of aliens.
@@ -253,7 +277,19 @@ class AlienInvasion:
         pygame.display.flip()
 
 
+def _read_int_env_var(name, default):
+    """Return integer env var value, or default if missing/invalid."""
+    value = os.getenv(name)
+    if value is None:
+        return default
+    try:
+        return int(value)
+    except ValueError:
+        return default
+
+
 if __name__ == '__main__':
     # Make a game instance, and run the game.
     ai = AlienInvasion()
-    ai.run_game()
+    auto_frames = _read_int_env_var("ALIEN_INVASION_AUTOPLAY_FRAMES", 0)
+    ai.run_game(max_frames=auto_frames or None, autoplay=auto_frames > 0)
