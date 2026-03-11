@@ -1,5 +1,6 @@
 import sys
 from time import sleep
+from pathlib import Path
 
 import pygame
 
@@ -19,6 +20,7 @@ class AlienInvasion:
         """Initialize the game, and create game resources."""
         pygame.init()
         self.settings = Settings()
+        self.base_path = Path(__file__).resolve().parent
 
         self.screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
         self.settings.screen_width = self.screen.get_rect().width
